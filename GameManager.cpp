@@ -1,3 +1,4 @@
+#include <cassert>
 #include <ctime>
 #include <windows.h>
 #include <random>
@@ -7,33 +8,36 @@
 GameManager::GameManager()
 	: mSoundManager("undertale-ost-ghost-fight-extended.mp3")
 	, mbIsGameOver(false)
-	, mOldTime(clock())
+	, mPrevTime(clock())
 {
-	Wait();
+	static_assert(mMAP_START_X >= 0u, "Starting X point is negative");
+	static_assert(mMAP_START_Y >= 0u, "Starting Y point is negative");
+	static_assert(mMAP_WIDTH > 0u && mMAP_HEIGHT > 0u
+		, "The Width or height of the map is equal to or less than zero");
 
 	// Initializes the map
-	for (size_t i = 0; i < mMAP_HEIGHT; ++i)
+	for (size_t i = 0u; i < mMAP_HEIGHT; ++i)
 	{
-		for (size_t j = 0; j < mMAP_WIDTH; ++j)
+		for (size_t j = 0u; j < mMAP_WIDTH; ++j)
 		{
 			mMap[i][j] = eObjectType::EMPTY;
 		}
 	}
 
-	// Sets up walls
-	for (size_t i = 0; i < mMAP_WIDTH; ++i)
+	// Sets up boundaries
+	for (size_t i = 0u; i < mMAP_WIDTH; ++i)
 	{
 		mMap[0][i] = eObjectType::WALL;
 		mMap[mMAP_HEIGHT - 1][i] = eObjectType::WALL;
 	}
-	for (size_t i = 1; i < mMAP_HEIGHT - 1; ++i)
+	for (size_t i = 1u; i < mMAP_HEIGHT; ++i)
 	{
 		mMap[i][0] = eObjectType::WALL;
 		mMap[i][mMAP_WIDTH - 1] = eObjectType::WALL;
 	}
 
 	// Generates enemies
-	for (size_t i = 23; i < 25; ++i)
+	for (size_t i = 23u; i < 25u; ++i)
 	{
 		mMap[1][i] = eObjectType::ENEMY;
 		mMap[2][i] = eObjectType::ENEMY;
@@ -47,8 +51,8 @@ void GameManager::Update(bool bIsLeftKeyPressed, bool bIsRightKeyPressed, bool e
 {
 	// Generates new enemies
 	clock_t curTime = clock();
-	constexpr size_t ENEMY_GENERATE_INTERVAL = 4500U;
-	if (curTime - mOldTime > ENEMY_GENERATE_INTERVAL)
+	constexpr clock_t ENEMY_GENERATE_INTERVAL = 4500U;
+	if (curTime - mPrevTime > ENEMY_GENERATE_INTERVAL)
 	{
 		size_t generatePoint = rand() % 23u + 10u;
 		size_t bias = rand() % 5 + 1;
@@ -57,13 +61,13 @@ void GameManager::Update(bool bIsLeftKeyPressed, bool bIsRightKeyPressed, bool e
 		mMap[1][generatePoint] = eObjectType::ENEMY;
 		mMap[1][generatePoint + bias] = eObjectType::ENEMY;
 		
-		mOldTime = clock();
+		mPrevTime = clock();
 	}
 
 	// Bullet collsion handling
-	for (size_t i = 1; i < mMAP_HEIGHT - 1; ++i)
+	for (size_t i = 1u; i < mMAP_HEIGHT - 1u; ++i)
 	{
-		for (size_t j = 1; j < mMAP_WIDTH - 1; ++j)
+		for (size_t j = 1u; j < mMAP_WIDTH - 1u; ++j)
 		{
 			if (mMap[i][j] == eObjectType::BULLET)
 			{
@@ -81,20 +85,25 @@ void GameManager::Update(bool bIsLeftKeyPressed, bool bIsRightKeyPressed, bool e
 		}
 	}
 
-	for (size_t i = mMAP_HEIGHT - 2; i > 0; --i)
+	// Updates movable objects location
+	for (size_t i = mMAP_HEIGHT - 2u; i > 0u; --i)
 	{
-		for (size_t j = 0; j < mMAP_WIDTH - 1; ++j)
+		for (size_t j = 0u; j < mMAP_WIDTH - 1u; ++j)
 		{
 			// Updates enemies location
 			if (enemyMove && mMap[i][j] == eObjectType::ENEMY)
 			{
-				mMap[i][j] = eObjectType::EMPTY;
-				mMap[i + 1][j] = eObjectType::ENEMY;
-
-				if (i + 1 == mMAP_HEIGHT - 3 && !mbIsGameOver)
+				// Set Gameover flag if an enemy hits the ground 
+				// or walks into a player character
+				if ((mMap[i + 1][j] == eObjectType::PLAYER || mMap[i + 1][j] == eObjectType::WALL)
+					&& !mbIsGameOver)
 				{
 					mbIsGameOver = true;
+					return;
 				}
+
+				mMap[i][j] = eObjectType::EMPTY;
+				mMap[i + 1][j] = eObjectType::ENEMY;
 			}
 			// Update player character location or shoots a bullet if requested
 			else if (mMap[i][j] == eObjectType::PLAYER)
@@ -104,13 +113,13 @@ void GameManager::Update(bool bIsLeftKeyPressed, bool bIsRightKeyPressed, bool e
 					mMap[i - 1][j] = eObjectType::BULLET;
 				}
 
-				if (bIsLeftKeyPressed && j - 1 != -1)
+				if (bIsLeftKeyPressed && j > 1u)
 				{
 					mMap[i][j] = eObjectType::EMPTY;
 					mMap[i][j - 1] = eObjectType::PLAYER;
 					bIsLeftKeyPressed = false;
 				}
-				else if (bIsRightKeyPressed && j + 1 != mMAP_WIDTH - 1)
+				else if (bIsRightKeyPressed && j < mMAP_WIDTH - 2u)
 				{
 					mMap[i][j] = eObjectType::EMPTY;
 					mMap[i][j + 1] = eObjectType::PLAYER;
@@ -125,6 +134,12 @@ void GameManager::Update(bool bIsLeftKeyPressed, bool bIsRightKeyPressed, bool e
 
 void GameManager::Render()
 {
+	if (mbIsGameOver)
+	{
+		MessageBox(0, "You Died", "Game Over", MB_OK);
+		return;
+	}
+
 	mRenderManager.clearScreen();
 
 	mRenderManager.printToScreen(mMAP_START_X, 20, "Move to left: press z");
@@ -149,7 +164,7 @@ void GameManager::Render()
 			}
 			else if (mMap[i][j] == eObjectType::PLAYER)
 			{
-				mRenderManager.printToScreen(j + mMAP_START_X, i + mMAP_START_Y, "бр");
+				mRenderManager.printToScreen(j + mMAP_START_X, i + mMAP_START_Y, "#");
 			}
 			else if (mMap[i][j] == eObjectType::BULLET)
 			{
@@ -158,24 +173,19 @@ void GameManager::Render()
 		}
 	}
 	mRenderManager.flipScreen();
-
-	if (mbIsGameOver)
-	{
-		MessageBox(0, "You Died", "Game Over", MB_OK);
-	}
 }
 
 void GameManager::Wait() const
 {
-	clock_t oldTime;
-	clock_t currentTime;
+	clock_t prevTime;
+	clock_t curTime;
 	constexpr unsigned int FRAME_COUNT = 100U;
 
-	oldTime = clock();
+	prevTime = clock();
 	while (true)
 	{
-		currentTime = clock();
-		if (currentTime - oldTime > FRAME_COUNT)
+		curTime = clock();
+		if (curTime - prevTime > FRAME_COUNT)
 		{
 			return;
 		}

@@ -6,8 +6,8 @@
 int main()
 {
 	GameManager gameManager;
-	clock_t oldTime = clock();
-	constexpr unsigned int TIME_INTERVAL = 1000U;
+	clock_t prevTime = clock();
+	constexpr clock_t TIME_INTERVAL = 1000U;
 
 	while (!gameManager.IsGameOver())
 	{
@@ -38,11 +38,10 @@ int main()
 			}
 		}
 
-		clock_t curTime = clock();
-		if (curTime - oldTime > TIME_INTERVAL)
+		if (clock() - prevTime > TIME_INTERVAL)
 		{
 			enemyMove = true;
-			oldTime = clock();
+			prevTime = clock();
 		}
 
 		gameManager.Update(bIsLeftKeyPressed, bIsRightKeyPressed, enemyMove, bIsShoot);

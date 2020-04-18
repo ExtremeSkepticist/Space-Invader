@@ -30,9 +30,8 @@ private:
 	static constexpr unsigned int mMAP_END_Y = 18U;
 	static constexpr unsigned int mMAP_WIDTH = mMAP_END_X - mMAP_START_X + 1U;
 	static constexpr unsigned int mMAP_HEIGHT = mMAP_END_Y - mMAP_START_Y + 1U;
-	
 	eObjectType mMap[mMAP_HEIGHT][mMAP_WIDTH];
 
 	bool mbIsGameOver;
-	clock_t mOldTime;
+	clock_t mPrevTime;
 };
