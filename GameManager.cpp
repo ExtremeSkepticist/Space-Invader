@@ -1,7 +1,6 @@
-#include <cassert>
 #include <ctime>
-#include <windows.h>
 #include <random>
+#include <windows.h>
 
 #include "GameManager.h"
 
